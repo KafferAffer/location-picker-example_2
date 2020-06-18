@@ -2,14 +2,22 @@ package com.example.locationtest2;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
+import android.app.Activity;
+import android.content.Context;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.location.Address;
 import android.location.Geocoder;
 import android.os.Bundle;
 import android.os.Looper;
 import android.util.Log;
+import android.view.Gravity;
+import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.Button;
+import android.widget.LinearLayout;
+import android.widget.PopupWindow;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.core.app.ActivityCompat;
@@ -55,7 +63,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         setupAutoCompleteFragment();
 
-
         //Sets up the get current position button
         btnCurrLoc = (Button) findViewById(R.id.btn);
         btnCurrLoc.setOnClickListener(new View.OnClickListener() {
@@ -79,11 +86,46 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 try {
                     //Gets the closest adress to the given position. If you pick for example a country it will get the closest street to the given coordinates
                     //Havent found a way to make it better than that
-                    String address = geocoder.getFromLocation(latLng.latitude,latLng.longitude,1).get(0).getAddressLine(0).toString();
+                    final String address = geocoder.getFromLocation(latLng.latitude,latLng.longitude,1).get(0).getAddressLine(0).toString();
 
-                    //REPLACE THIS WITH THE SETRESULT AND FINISH IF YOU WANNA USE THIS TO GET MAPS
-                    //REMEMBER THAT LONGITUDE AND LATITUDE IS A GOOD IDEA TO BRING WITH YOU FOR PRECISION
-                    Toast.makeText(MapsActivity.this,address,Toast.LENGTH_SHORT).show();
+                    //
+                    LayoutInflater inflater = (LayoutInflater) getSystemService(LAYOUT_INFLATER_SERVICE);
+                    View popupView = inflater.inflate(R.layout.place_picker_popup, null);
+
+                    int width = LinearLayout.LayoutParams.WRAP_CONTENT;
+                    int height = LinearLayout.LayoutParams.WRAP_CONTENT;
+                    boolean focusable = true; // lets taps outside the popup also dismiss it
+                    final PopupWindow popupWindow = new PopupWindow(popupView, width, height, focusable);
+
+                    ((TextView)popupView.findViewById(R.id.txtPopupAddress)).setText(address);
+
+                    Button popupCancel = (Button) popupView.findViewById(R.id.btnPopupCancel);
+                    popupCancel.setOnClickListener(new View.OnClickListener() {
+                        @Override
+                        public void onClick(View view) {
+                            popupWindow.dismiss();
+                        }
+                    });
+
+                    Button popupChoose = (Button) popupView.findViewById(R.id.btnPopupChoose);
+                    popupChoose.setOnClickListener(new View.OnClickListener() {
+                        @Override
+                        public void onClick(View view) {
+                            Intent resultIntent = new Intent();
+                            resultIntent.putExtra("address_key",address);
+                            resultIntent.putExtra("latitude_key",latLng.latitude);
+                            resultIntent.putExtra("longitude_key",latLng.longitude);
+                            setResult(Activity.RESULT_OK,resultIntent);
+                            finish();
+                        }
+                    });
+
+
+
+
+
+                    popupWindow.showAtLocation(view, Gravity.CENTER, 0, 0);
+
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
