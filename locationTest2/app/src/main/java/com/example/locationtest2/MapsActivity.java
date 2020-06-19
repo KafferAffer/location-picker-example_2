@@ -8,6 +8,7 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.location.Address;
 import android.location.Geocoder;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Looper;
 import android.util.Log;
@@ -21,6 +22,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 import androidx.fragment.app.FragmentActivity;
 
 import com.google.android.gms.common.api.Status;
@@ -43,9 +45,10 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Locale;
 
-public class MapsActivity extends FragmentActivity implements OnMapReadyCallback, ActivityCompat.OnRequestPermissionsResultCallback {
+public class MapsActivity extends FragmentActivity implements OnMapReadyCallback, ActivityCompat.OnRequestPermissionsResultCallback, GoogleMap.OnMapClickListener {
 
-    private static final int REQUEST_CODE_LOCATION_PERMISSION = 1;
+    private static final int REQUEST_CODE_LOCATION_PERMISSION = 952;
+    private int BACKGROUND_LOCATION_ACCESS_REQUEST_CODE = 951;
     private GoogleMap mMap;
     private LatLng latLng = new LatLng(-8.579892, 116.095239);
     private MapFragment mapFragment;
@@ -57,8 +60,11 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_maps);
 
+        getCurrentLocation();
+
         //finds google map
         mapFragment = (MapFragment) getFragmentManager().findFragmentById(R.id.map);
+        mapFragment.getMapAsync(this);
 
 
         setupAutoCompleteFragment();
@@ -68,12 +74,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         btnCurrLoc.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                if (ActivityCompat.checkSelfPermission(MapsActivity.this,Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                    ActivityCompat.requestPermissions(MapsActivity.this,new String[]{Manifest.permission.ACCESS_FINE_LOCATION},REQUEST_CODE_LOCATION_PERMISSION);
-
-                } else {
-                    getCurrentLocation();
-                }
+                getCurrentLocation();
             }
         });
 
@@ -139,46 +140,53 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     @SuppressLint("MissingPermission")
     private void getCurrentLocation() {
 
-        //Location request
-        LocationRequest locationRequest = new LocationRequest();
-        locationRequest.setInterval(10000);
-        locationRequest.setFastestInterval(3000);
-        locationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
+        if (ActivityCompat.checkSelfPermission(MapsActivity.this,Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(MapsActivity.this,new String[]{Manifest.permission.ACCESS_FINE_LOCATION},REQUEST_CODE_LOCATION_PERMISSION);
 
-        LocationServices.getFusedLocationProviderClient(MapsActivity.this)
-                .requestLocationUpdates(locationRequest, new LocationCallback(){
-                    @Override
-                    //When a result for the location request gets here
-                    public void onLocationResult(LocationResult locationResult) {
-                        super.onLocationResult(locationResult);
-                        LocationServices.getFusedLocationProviderClient(MapsActivity.this)
-                                .removeLocationUpdates(this);
-                        if(locationResult!=null && locationResult.getLocations().size()>0){
+        } else {
+            //Location request
+            LocationRequest locationRequest = new LocationRequest();
+            locationRequest.setInterval(10000);
+            locationRequest.setFastestInterval(3000);
+            locationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
 
-                            //Extract info
-                            int lastLocationIndex = locationResult.getLocations().size()-1;
-                            double latitude = locationResult.getLocations().get(lastLocationIndex).getLatitude();
-                            double longitude = locationResult.getLocations().get(lastLocationIndex).getLongitude();
+            LocationServices.getFusedLocationProviderClient(MapsActivity.this)
+                    .requestLocationUpdates(locationRequest, new LocationCallback(){
+                        @Override
+                        //When a result for the location request gets here
+                        public void onLocationResult(LocationResult locationResult) {
+                            super.onLocationResult(locationResult);
+                            LocationServices.getFusedLocationProviderClient(MapsActivity.this)
+                                    .removeLocationUpdates(this);
+                            if(locationResult!=null && locationResult.getLocations().size()>0){
 
-                            //Find address and put it into the search part
-                            try {
-                                Geocoder geocoder = new Geocoder(MapsActivity.this, Locale.getDefault());
-                                List<Address> adresses = geocoder.getFromLocation(latitude,longitude,1);
-                                String address = adresses.get(0).getAddressLine(0);
-                                autocompleteFragment.setText(address);
-                            } catch (IOException e) {
-                                e.printStackTrace();
+                                //Extract info
+                                int lastLocationIndex = locationResult.getLocations().size()-1;
+                                double latitude = locationResult.getLocations().get(lastLocationIndex).getLatitude();
+                                double longitude = locationResult.getLocations().get(lastLocationIndex).getLongitude();
+
+                                //Find address and put it into the search part
+                                try {
+                                    Geocoder geocoder = new Geocoder(MapsActivity.this, Locale.getDefault());
+                                    List<Address> adresses = geocoder.getFromLocation(latitude,longitude,1);
+                                    String address = adresses.get(0).getAddressLine(0);
+                                    autocompleteFragment.setText(address);
+                                } catch (IOException e) {
+                                    e.printStackTrace();
+                                }
+
+                                //Sets the maps position to the address'
+                                latLng = new LatLng(latitude, longitude);
+                                mapFragment.getMapAsync(MapsActivity.this);
+
+
+
                             }
-
-                            //Sets the maps position to the address'
-                            latLng = new LatLng(latitude, longitude);
-                            mapFragment.getMapAsync(MapsActivity.this);
-
-
-
                         }
-                    }
-                }, Looper.getMainLooper());
+                    }, Looper.getMainLooper());
+        }
+
+
     }
 
 
@@ -200,6 +208,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 Log.e("Error", status.getStatusMessage());
             }
         });
+
+        autocompleteFragment.setText("hi");
     }
 
     //Whenever the map has loaded
@@ -207,13 +217,31 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     public void onMapReady(GoogleMap googleMap) {
         mMap = googleMap;
         //Moves the camera
-        mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, 8.5f));
+        mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 16));
+        //Sets the on click listener
+        mMap.setOnMapClickListener(this);
         //Clears any existing markers
         mMap.clear();
         //Adds a new marker
         mMap.addMarker(new MarkerOptions()
                 .position(latLng)
                 .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)));
+
+        //Sets the text
+        double latitude = latLng.latitude;
+        double longitude = latLng.longitude;
+
+        try {
+            Geocoder geocoder = new Geocoder(MapsActivity.this, Locale.getDefault());
+            List<Address> adresses = null;
+            adresses = geocoder.getFromLocation(latitude,longitude,1);
+            String address = adresses.get(0).getAddressLine(0);
+            autocompleteFragment.setText(address);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+
     }
 
     @Override
@@ -236,5 +264,28 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 }
                 break;
         }
+    }
+
+    @Override
+    public void onMapClick(LatLng clickedLatLng) {
+        if (Build.VERSION.SDK_INT >= 29) {
+            //We need background permission
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_BACKGROUND_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+                latLng = clickedLatLng;
+                mapFragment.getMapAsync(MapsActivity.this);
+            } else {
+                if (ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.ACCESS_BACKGROUND_LOCATION)) {
+                    //We show a dialog and ask for permission
+                    ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_BACKGROUND_LOCATION}, BACKGROUND_LOCATION_ACCESS_REQUEST_CODE);
+                } else {
+                    ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_BACKGROUND_LOCATION}, BACKGROUND_LOCATION_ACCESS_REQUEST_CODE);
+                }
+            }
+
+        } else {
+            latLng = clickedLatLng;
+            mapFragment.getMapAsync(MapsActivity.this);
+        }
+
     }
 }
