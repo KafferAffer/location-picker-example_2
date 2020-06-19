@@ -19,7 +19,6 @@ import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.PopupWindow;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
@@ -50,6 +49,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private static final int REQUEST_CODE_LOCATION_PERMISSION = 952;
     private int BACKGROUND_LOCATION_ACCESS_REQUEST_CODE = 951;
     private GoogleMap mMap;
+    private Geocoder mGeo;
     private LatLng latLng = new LatLng(-8.579892, 116.095239);
     private MapFragment mapFragment;
     PlaceAutocompleteFragment autocompleteFragment;
@@ -60,7 +60,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_maps);
 
-        getCurrentLocation();
+        mGeo = new Geocoder(MapsActivity.this, Locale.getDefault());
 
         //finds google map
         mapFragment = (MapFragment) getFragmentManager().findFragmentById(R.id.map);
@@ -68,6 +68,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
 
         setupAutoCompleteFragment();
+
+        getCurrentLocation();
 
         //Sets up the get current position button
         btnCurrLoc = (Button) findViewById(R.id.btn);
@@ -83,11 +85,10 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         submit.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                Geocoder geocoder = new Geocoder(MapsActivity.this, Locale.getDefault());
                 try {
                     //Gets the closest adress to the given position. If you pick for example a country it will get the closest street to the given coordinates
                     //Havent found a way to make it better than that
-                    final String address = geocoder.getFromLocation(latLng.latitude,latLng.longitude,1).get(0).getAddressLine(0).toString();
+                    final String address = mGeo.getFromLocation(latLng.latitude,latLng.longitude,1).get(0).getAddressLine(0).toString();
 
                     //
                     LayoutInflater inflater = (LayoutInflater) getSystemService(LAYOUT_INFLATER_SERVICE);
@@ -167,8 +168,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
                                 //Find address and put it into the search part
                                 try {
-                                    Geocoder geocoder = new Geocoder(MapsActivity.this, Locale.getDefault());
-                                    List<Address> adresses = geocoder.getFromLocation(latitude,longitude,1);
+                                    List<Address> adresses = mGeo.getFromLocation(latitude,longitude,1);
                                     String address = adresses.get(0).getAddressLine(0);
                                     autocompleteFragment.setText(address);
                                 } catch (IOException e) {
@@ -232,9 +232,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         double longitude = latLng.longitude;
 
         try {
-            Geocoder geocoder = new Geocoder(MapsActivity.this, Locale.getDefault());
             List<Address> adresses = null;
-            adresses = geocoder.getFromLocation(latitude,longitude,1);
+            adresses = mGeo.getFromLocation(latitude,longitude,1);
             String address = adresses.get(0).getAddressLine(0);
             autocompleteFragment.setText(address);
         } catch (IOException e) {
